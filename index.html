@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="build" content="383b6e1bb39a173d1fa37542460e7803b958622a">
+<link rel="icon" href="data:,">
+<title>SHOTGLASS — previs shot composer</title>
+<style>
+  :root { color-scheme: dark; --bg:#141418; --panel:#1c1c22; --line:#2c2c36; --ink:#e8e6ef; --dim:#8f8da0; --acc:#7cc4ff; --warn:#ffb347; --sel:#ffd54a; }
+  * { box-sizing:border-box; } [hidden] { display:none !important; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:13px/1.4 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; overflow:hidden; -webkit-user-select:none; user-select:none; }
+  #app { display:grid; height:100%; grid-template-rows:44px 1fr; grid-template-columns:240px 1fr 260px; grid-template-areas:"top top top" "left view right"; }
+  #top { grid-area:top; display:flex; align-items:center; gap:8px; padding:0 10px; background:var(--panel); border-bottom:1px solid var(--line); }
+  #top .brand { font-weight:800; letter-spacing:.14em; font-size:13px; color:var(--acc); }
+  #top .name { flex:1; min-width:0; } #top .name input { width:100%; max-width:280px; background:transparent; border:1px solid transparent; color:var(--ink); font:inherit; padding:4px 6px; border-radius:4px; } #top .name input:focus { border-color:var(--line); outline:none; background:var(--bg); }
+  #ver { color:var(--dim); font-size:11px; }
+  #left, #right { background:var(--panel); overflow:auto; padding:10px; }
+  #left { grid-area:left; border-right:1px solid var(--line); } #right { grid-area:right; border-left:1px solid var(--line); }
+  #view { grid-area:view; position:relative; min-width:0; min-height:0; }
+  #render { width:100%; height:100%; display:block; outline:none; touch-action:none; }
+  #hud { position:absolute; left:10px; top:10px; pointer-events:none; font-size:11px; color:var(--dim); text-shadow:0 1px 2px #000; }
+  #frame { position:absolute; inset:0; pointer-events:none; display:none; }
+  #frame.on { display:block; } #frame i { position:absolute; background:#000; } #frame b { position:absolute; border:1px solid #fff8; }
+  #timeline { position:absolute; left:10px; right:10px; bottom:64px; display:flex; align-items:center; gap:6px; background:#1c1c22e6; border:1px solid var(--line); border-radius:10px; padding:4px 8px; font-size:11px; color:var(--dim); }
+  #timeline .scrub { flex:1; position:relative; height:30px; }
+  #timeline .scrub input { position:absolute; inset:0; width:100%; margin:0; -webkit-appearance:none; appearance:none; background:transparent; }
+  #timeline .scrub input::-webkit-slider-runnable-track { height:4px; background:#3a3a46; border-radius:2px; margin-top:13px; }
+  #timeline .scrub input::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:22px; margin-top:-9px; background:var(--acc); border-radius:3px; }
+  #timeline .keys { position:absolute; left:7px; right:7px; top:2px; height:8px; pointer-events:none; }
+  #timeline .keys i { position:absolute; width:8px; height:8px; margin-left:-4px; background:var(--sel); transform:rotate(45deg); }
+  #timeline .keys i.cam { background:var(--acc); top:0; } #timeline .keys i.sel { top:0; }
+  #timeline b { color:var(--ink); font-weight:500; min-width:58px; text-align:center; font-variant-numeric:tabular-nums; }
+  #timeline button.sm { min-height:28px; padding:3px 8px; }
+  #edit { position:absolute; left:10px; right:10px; bottom:112px; display:none; align-items:center; gap:6px; padding:4px 8px; background:#1c1c22e6; border:1px solid var(--line); border-radius:10px; overflow-x:auto; font-size:11px; } #edit.on { display:flex; }
+  #edit .shot { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:#26262f; cursor:pointer; min-width:84px; }
+  #edit .shot b { font-weight:600; font-size:11px; white-space:nowrap; max-width:140px; overflow:hidden; text-overflow:ellipsis; } #edit .shot span { color:var(--dim); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #edit .shot.live { border-color:var(--sel); background:#3a3520; } #edit .shot.sel { border-color:var(--acc); }
+  #edit .shot.long { border-color:#c0392b; } #edit .shot.long i { font-style:normal; color:#e74c3c; font-size:10px; } #edit .shot.clipend { margin-right:10px; position:relative; } #edit .shot.clipend::after { content:""; position:absolute; right:-8px; top:4px; bottom:4px; width:2px; background:var(--dim); border-radius:1px; }
+  #edit .lbl { color:var(--dim); letter-spacing:.12em; font-size:10px; margin-right:2px; flex:0 0 auto; }
+  #tools { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); display:flex; gap:4px; background:#1c1c22e6; border:1px solid var(--line); border-radius:10px; padding:4px; }
+  h4 { margin:10px 0 6px; font-size:10px; letter-spacing:.14em; color:var(--dim); font-weight:600; }
+  button { font:inherit; color:var(--ink); background:#26262f; border:1px solid var(--line); padding:7px 10px; border-radius:6px; cursor:pointer; min-height:34px; }
+  button:hover { border-color:var(--acc); } button.on { background:#2a3a4d; border-color:var(--acc); color:#fff; } button:disabled { opacity:.35; cursor:default; }
+  button.sm { padding:4px 8px; min-height:28px; font-size:12px; } button.icon { width:40px; padding:0; font-size:16px; }
+  .row { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px; } .row > * { flex:1; }
+  .tree { font-size:12px; } .tree .n { display:flex; align-items:center; gap:6px; padding:5px 6px; border-radius:5px; cursor:pointer; } .tree .n:hover { background:#26262f; } .tree .n.sel { background:#2a3a4d; color:#fff; }
+  .tree .n .k { color:var(--dim); font-size:10px; width:52px; } .tree .n .eye { margin-left:auto; opacity:.6; } .tree .n.hid { opacity:.45; }
+  .prop { display:grid; grid-template-columns:52px 1fr 1fr 1fr; gap:4px; align-items:center; margin-bottom:4px; font-size:12px; } .prop label { color:var(--dim); }
+  textarea { width:100%; min-height:160px; background:var(--bg); border:1px solid var(--line); color:var(--ink); font:12px ui-monospace, monospace; padding:8px; border-radius:6px; }
+  .modal { position:fixed; inset:0; z-index:20; background:#000a; display:grid; place-content:center; padding:16px; } .modal > div { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; width:min(92vw, 640px); }
+  .prop input, .prop select, #right input[type=text], #right select { width:100%; min-width:0; background:var(--bg); border:1px solid var(--line); color:var(--ink); font:inherit; padding:5px 6px; border-radius:5px; } input:focus { outline:none; border-color:var(--acc); }
+  .chips { display:flex; gap:4px; flex-wrap:wrap; } .chips button { flex:0 0 auto; }
+  .kv { display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin:2px 0; } .kv b { color:var(--ink); font-weight:500; }
+  #toast { position:absolute; left:50%; top:12px; transform:translateX(-50%); background:#26262fee; border:1px solid var(--line); padding:8px 14px; border-radius:8px; font-size:12px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:80%; }
+  #toast.on { opacity:1; }
+  .menu { position:absolute; z-index:10; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:4px; display:flex; flex-direction:column; gap:2px; min-width:180px; box-shadow:0 8px 30px #000a; } .menu button { text-align:left; border:0; background:transparent; } .menu button:hover { background:#26262f; }
+  #drawerbtns { display:none; }
+  @media (max-width: 900px) {
+    #app { grid-template-columns:1fr; grid-template-rows:44px 1fr; grid-template-areas:"top" "view"; }
+    #left, #right { position:absolute; top:44px; bottom:0; width:min(86vw, 320px); z-index:5; transform:translateX(-105%); transition:transform .18s; box-shadow:0 0 40px #000a; }
+    #right { right:0; left:auto; transform:translateX(105%); }
+    #left.open, #right.open { transform:none; }
+    #drawerbtns { display:flex; gap:4px; }
+    #tools { bottom:14px; }
+    #timeline { bottom:66px; left:6px; right:6px; padding:3px 6px; } #timeline b { min-width:46px; }
+    #edit { bottom:112px; left:6px; right:6px; }
+    #ver { display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div id="drawerbtns"><button class="icon" id="btn-left" title="Scene">☰</button></div>
+    <span class="brand">SHOTGLASS</span>
+    <div class="name"><input id="docname" value="Untitled shot" spellcheck="false"></div>
+    <button class="sm" id="btn-undo" title="Undo (⌘Z)">↶</button>
+    <button class="sm" id="btn-redo" title="Redo (⌘⇧Z)">↷</button>
+    <button class="sm" id="btn-file">File ▾</button>
+    <button class="sm on" id="btn-export" title="Export (⌘E)">Export ▾</button>
+    <div id="drawerbtns" style="display:contents"><button class="icon" id="btn-right" title="Properties">⚙</button></div>
+    <span id="ver"></span>
+  </div>
+  <div id="left">
+    <h4>ADD</h4>
+    <div class="row"><button class="sm" data-add="box">Box</button><button class="sm" data-add="sphere">Sphere</button><button class="sm" data-add="cylinder">Cyl</button><button class="sm" data-add="cone">Cone</button></div>
+    <div class="row"><button class="sm" data-add="plane">Plane</button><button class="sm" data-add="mannequin">Figure</button><button class="sm" data-add="empty">Empty</button><button class="sm" data-add="camera">Camera</button></div>
+    <h4>KIT</h4>
+    <div class="row"><button class="sm" data-add="wall">Wall</button><button class="sm" data-add="stairs">Stairs</button><button class="sm" data-add="roof">Roof</button><button class="sm" data-add="arch">Arch</button></div>
+    <div class="row"><button class="sm" data-add="tree">Tree</button><button class="sm" data-add="car">Car</button><button class="sm" data-add="streetlamp">Lamp</button></div>
+    <div class="row"><button class="sm" data-add="sofa">Sofa</button><button class="sm" data-add="table">Table</button><button class="sm" data-add="chair">Chair</button><button class="sm" data-add="bed">Bed</button></div>
+    <h4>IMPORT</h4>
+    <div class="row"><button class="sm" id="btn-import-blend">Import .blend…</button><button class="sm" id="btn-import-glb">Import GLB…</button></div>
+    <div class="row"><button class="sm" id="btn-import-img">Image plane…</button></div>
+    <div class="row"><button class="sm" id="btn-paste">Paste scene JSON…</button></div>
+    <h4>SCENE</h4>
+    <div class="tree" id="tree"></div>
+  </div>
+  <div id="view">
+    <canvas id="render"></canvas>
+    <div id="frame"><i id="fl"></i><i id="fr"></i><i id="ft"></i><i id="fb"></i><b id="fbox"></b></div>
+    <div id="hud"></div>
+    <div id="toast"></div>
+    <div id="edit"><span class="lbl">EDIT</span><button class="sm" id="ed-add" title="Add a shot for the active camera from the playhead">+ Shot</button><button class="sm on" id="ed-follow" title="Follow the edit: play cuts to each shot's camera">⇄ Follow</button></div>
+    <div id="timeline">
+      <button class="sm" id="tl-play" title="Play / pause (space)">▶</button>
+      <b id="tl-time">0.00 s</b>
+      <div class="scrub"><div class="keys" id="tl-keys"></div><input type="range" id="tl-scrub" min="0" max="4" step="0.01" value="0"></div>
+      <button class="sm" id="tl-key" title="Key the selected node here (K)">◆ Key</button>
+      <button class="sm" id="tl-unkey" title="Remove this key">◇</button>
+    </div>
+    <div id="tools">
+      <button class="icon on" data-mode="move" title="Move (G)">✥</button>
+      <button class="icon" data-mode="rotate" title="Rotate (R)">↻</button>
+      <button class="icon" data-mode="scale" title="Scale (S)">⤢</button>
+      <button class="icon" id="btn-look" title="Look through camera (C)">🎥</button>
+      <button class="icon" id="btn-frame" title="Frame selected (F)">⌖</button>
+      <button class="icon" id="btn-dup" title="Duplicate (⌘D)">⧉</button>
+      <button class="icon" id="btn-del" title="Delete">🗑</button>
+    </div>
+  </div>
+  <div id="right">
+    <div id="props"><div style="color:var(--dim)">Select something.</div></div>
+    <h4>SEQUENCE</h4>
+    <div id="seq"></div>
+    <h4>EDIT <button class="sm" id="ed-add2" style="float:right;min-height:24px;padding:2px 8px">+ Shot</button></h4>
+    <div id="editpanel"></div>
+    <h4>OUTPUT</h4>
+    <div class="chips" id="res"></div>
+    <div class="kv" style="margin-top:6px"><span>Active camera</span><b id="activecam">—</b></div>
+    <div id="caminfo"></div>
+  </div>
+</div>
+<input type="file" id="file-glb" accept=".glb,.gltf" hidden><input type="file" id="file-blend" accept=".blend,.blend.gz,.gz" hidden><input type="file" id="file-img" accept="image/*" hidden><input type="file" id="file-doc" accept=".json" hidden>
+<script src="app.js?v=383b6e1bb39a173d1fa37542460e7803b958622a"></script>
+</body>
+</html>
